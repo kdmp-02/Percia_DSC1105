@@ -1,0 +1,231 @@
+---
+title: "Sec_1_SA1-Percia-EDA"
+author: "Kyte Daiter Percia"
+date: "2025-03-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(gridExtra)
+library(moments)
+library(e1071)
+library(MASS)
+library(ggpmisc)
+library(lm.beta)
+library(lattice)
+```
+
+## Dataset: EDA_Ecommerce_Assessment.csv
+
+```{r load-data}
+df <- read.csv("C:/Users/john/Downloads/EDA_Ecommerce_Assessment.csv")
+str(df)
+summary(df)
+```
+
+---
+
+## UNIT 1: Univariate Data Analysis
+
+### 1. Distribution of Key Variables
+We begin by visually examining the distribution of `Purchase_Amount`, `Number_of_Items`, and `Satisfaction_Score` using histograms and boxplots.
+
+```{r hist-box}
+par(mfrow = c(2,3))
+
+hist(df$Purchase_Amount, main = "Histogram of Purchase Amount", col = "skyblue", xlab = "Purchase Amount", breaks = 30)
+hist(df$Number_of_Items, main = "Histogram of Number of Items", col = "lightgreen", xlab = "Number of Items", breaks = 10)
+hist(df$Satisfaction_Score, main = "Histogram of Satisfaction Score", col = "orange", xlab = "Satisfaction Score", breaks = 5)
+
+boxplot(df$Purchase_Amount, main = "Boxplot of Purchase Amount", col = "skyblue", horizontal = TRUE)
+boxplot(df$Number_of_Items, main = "Boxplot of Number of Items", col = "lightgreen", horizontal = TRUE)
+boxplot(df$Satisfaction_Score, main = "Boxplot of Satisfaction Score", col = "orange", horizontal = TRUE)
+
+par(mfrow = c(1,1))
+```
+
+**Interpretation:** All three variables exhibit right-skewed distributions. Extreme values exist, particularly in `Purchase_Amount`. `Satisfaction_Score` appears more categorical.
+
+---
+
+### 2. Summary Statistics for Purchase Amount
+We compute central tendency and spread measures for `Purchase_Amount`.
+
+```{r summary-stats}
+mean_purchase <- mean(df$Purchase_Amount, na.rm = TRUE)
+median_purchase <- median(df$Purchase_Amount, na.rm = TRUE)
+mode_purchase <- as.numeric(names(sort(table(df$Purchase_Amount), decreasing = TRUE)[1]))
+var_purchase <- var(df$Purchase_Amount, na.rm = TRUE)
+sd_purchase <- sd(df$Purchase_Amount, na.rm = TRUE)
+iqr_purchase <- IQR(df$Purchase_Amount, na.rm = TRUE)
+
+cat("Mean:", mean_purchase, "\n")
+cat("Median:", median_purchase, "\n")
+cat("Mode:", mode_purchase, "\n")
+cat("Variance:", var_purchase, "\n")
+cat("Standard Deviation:", sd_purchase, "\n")
+cat("IQR:", iqr_purchase, "\n")
+```
+
+**Interpretation:** The mean and median are close, indicating a moderately symmetric distribution. High variance and standard deviation highlight variability.
+
+---
+
+### 3. Density Plots by Gender
+We explore how `Browsing_Time` and `Purchase_Amount` differ across genders.
+
+```{r gender-density}
+plot1 <- ggplot(df, aes(x = Browsing_Time, fill = Gender)) +
+  geom_density(alpha = 0.5) + ggtitle("Browsing Time by Gender")
+
+plot2 <- ggplot(df, aes(x = Purchase_Amount, fill = Gender)) +
+  geom_density(alpha = 0.5) + ggtitle("Purchase Amount by Gender")
+
+grid.arrange(plot1, plot2, ncol = 2)
+```
+
+**Interpretation:** Minor differences are observed between genders. Males show a slightly higher peak in spending.
+
+---
+
+### 4. Skewness and Transformation
+We evaluate the impact of logarithmic and square root transformations on `Browsing_Time`.
+
+```{r transform-skewness}
+df <- df %>% mutate(log_Browsing_Time = log1p(Browsing_Time), sqrt_Browsing_Time = sqrt(Browsing_Time))
+
+original_skew <- skewness(df$Browsing_Time)
+log_skew <- skewness(df$log_Browsing_Time)
+sqrt_skew <- skewness(df$sqrt_Browsing_Time)
+
+cat("Original Skewness:", original_skew, "\n")
+cat("Log-transformed Skewness:", log_skew, "\n")
+cat("Square Root Skewness:", sqrt_skew, "\n")
+```
+
+**Interpretation:** Original `Browsing_Time` is nearly symmetric. Log transformation introduces left skew.
+
+---
+
+### 5. Simple Linear Regression
+We model `Purchase_Amount` using `Browsing_Time` as a predictor.
+
+```{r simple-regression}
+model <- lm(Purchase_Amount ~ Browsing_Time, data = df)
+summary(model)
+```
+
+**Interpretation:** Coefficient for `Browsing_Time` is not statistically significant. R-squared is near zero, indicating a poor fit.
+
+---
+
+### 6. Regression Visualization
+
+```{r scatter-lm}
+ggplot(df, aes(x = Browsing_Time, y = Purchase_Amount)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") +
+  ggtitle("Purchase Amount vs Browsing Time")
+```
+
+**Interpretation:** Scattered points around a flat line confirm weak or no linear relationship.
+
+---
+
+## UNIT 2: Bivariate Data Analysis
+
+### 7. Scatter Plot: Purchase Amount vs. Number of Items
+
+```{r items-vs-amount}
+ggplot(df, aes(x = Number_of_Items, y = Purchase_Amount)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "blue") +
+  ggtitle("Purchase Amount vs Number of Items")
+```
+
+**Interpretation:** A positive trend is visible—more items generally lead to higher purchase amounts.
+
+---
+
+### 8. Polynomial Regression Comparison
+
+```{r poly-regression}
+poly_model <- lm(Purchase_Amount ~ poly(Browsing_Time, 2, raw = TRUE), data = df)
+summary(poly_model)
+```
+
+**Interpretation:** The polynomial model fits better than a simple linear one, showing a peak spending time.
+
+---
+
+### 9. LOESS Smoothing
+
+```{r loess}
+ggplot(df, aes(x = Browsing_Time, y = Purchase_Amount)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", color = "purple") +
+  ggtitle("LOESS: Purchase Amount vs Browsing Time")
+```
+
+**Interpretation:** LOESS curve captures subtle nonlinear patterns more effectively.
+
+---
+
+### 10. Robust Regression
+
+```{r robust}
+huber_model <- rlm(Purchase_Amount ~ Browsing_Time, data = df)
+summary(huber_model)
+```
+
+**Interpretation:** Robust regression reduces the impact of outliers, offering more stable results than OLS.
+
+---
+
+### 11. Interaction Plot: Category x Browsing Time
+
+```{r interaction}
+ggplot(df, aes(x = Browsing_Time, y = Purchase_Amount, color = Category)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggtitle("Interaction: Browsing Time by Category")
+```
+
+**Interpretation:** Different product categories influence spending behavior across browsing times.
+
+---
+
+### 12. Coplots for Categories
+
+```{r coplots}
+coplot(Purchase_Amount ~ Browsing_Time | Category, data = df, panel = panel.smooth)
+```
+
+**Interpretation:** Some categories like electronics show strong associations with longer browsing.
+
+---
+
+### 13. Multiple Regression Analysis
+
+```{r multiple-regression}
+multi_model <- lm(Purchase_Amount ~ Browsing_Time + Number_of_Items + Satisfaction_Score, data = df)
+summary(multi_model)
+lm.beta(multi_model)
+```
+
+**Interpretation:** `Number_of_Items` and `Satisfaction_Score` are strong predictors. `Browsing_Time` remains weak.
+
+---
+
+### 14. Model Selection via Stepwise Regression
+
+```{r stepwise}
+stepwise_model <- step(multi_model, direction = "both")
+summary(stepwise_model)
+```
+
+**Interpretation:** Stepwise selection confirms variable importance. Final model prioritizes `Number_of_Items` and `Satisfaction_Score`.
